@@ -156,9 +156,15 @@ class AuthController extends Controller
     {
         //dd($request->all());
         try {
+            $verifyEmailOnRegistration = env('VERIFY_EMAIL_ON_REGISTRATION', 1);
             $request_array = $request->input();
             $password = Hash::make($request->input('password'));
             $user->password = $password;
+
+            if($verifyEmailOnRegistration == 0){
+                $user->active=1;
+            }
+
             $name = $request->input('full_name');
             $user->first_name = $name;
             if ($request_array['email'] == '') {
@@ -187,34 +193,55 @@ class AuthController extends Controller
             $user->save();
             $message12 = '';
             $settings = CommonSettings::select('status')->where('option_name', '=', 'send_otp')->first();
+
+
             $sms = Plugin::select('status')->where('name', '=', 'SMS')->first();
             // Event for login
             event(new \App\Events\LoginEvent($request));
-            if ($request->input('email') !== '') {
-                $var = $this->PhpMailController->sendmail($from = $this->PhpMailController->mailfrom('1', '0'), $to = ['name' => $name, 'email' => $request->input('email')], $message = ['subject' => null, 'scenario' => 'registration'], $template_variables = ['user' => $name, 'email_address' => $request->input('email'), 'password_reset_link' => url('account/activate/'.$code)]);
-            }
-            if ($settings->status == 1 || $settings->status == '1') {
-                if (count($sms) > 0) {
-                    if ($sms->status == 1 || $sms->status == '1') {
-                        $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail_and_moble');
+            if($verifyEmailOnRegistration) {
+                if ($request->input('email') !== '') {
+                    $var = $this->PhpMailController->sendmail($from = $this->PhpMailController->mailfrom('1', '0'), $to = ['name' => $name, 'email' => $request->input('email')], $message = ['subject' => null, 'scenario' => 'registration'], $template_variables = ['user' => $name, 'email_address' => $request->input('email'), 'password_reset_link' => url('account/activate/' . $code)]);
+                }
+                if ($settings->status == 1 || $settings->status == '1') {
+                    if (count($sms) > 0) {
+                        if ($sms->status == 1 || $sms->status == '1') {
+                            $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail_and_moble');
+                        } else {
+                            $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail_sms_plugin_inactive_or_not_setup');
+                        }
                     } else {
-                        $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail_sms_plugin_inactive_or_not_setup');
+                        if ($request->input('email') !== '') {
+                            $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail');
+                        } else {
+                            $message12 = Lang::get('lang.account-created-contact-admin-as-we-were-not-able-to-send-opt');
+                        }
                     }
                 } else {
-                    if ($request->input('email') !== '') {
-                        $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail');
+                    $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail');
+                }
+                if ($api == true) {
+                    return ['message' => $message12, 'user' => $user->toArray()];
+                }
+
+                return redirect('home')->with('success', $message12);
+            }else{
+                $loginAttempts = 1;
+                $usernameinput = $request->input('email');
+                $field = filter_var($usernameinput, FILTER_VALIDATE_EMAIL) ? 'email' : 'user_name';
+
+                \Session::put('loginAttempts', $loginAttempts + 1);
+                if (Auth::Attempt([$field => $usernameinput, 'password' => $request->input('password')], $request->has('remember'))) {
+                    if (Auth::user()->role == 'user') {
+                        if ($request->input('referer')) {
+                            return \Redirect::route($request->input('referer'));
+                        }
+
+                        return \Redirect::route('/');
                     } else {
-                        $message12 = Lang::get('lang.account-created-contact-admin-as-we-were-not-able-to-send-opt');
+                        return redirect()->intended($this->redirectPath());
                     }
                 }
-            } else {
-                $message12 = Lang::get('lang.activate_your_account_click_on_Link_that_send_to_your_mail');
             }
-            if ($api == true) {
-                return ['message' => $message12, 'user' => $user->toArray()];
-            }
-
-            return redirect('home')->with('success', $message12);
         } catch (\Exception $e) {
             if ($api == true) {
                 throw new \Exception($e->getMessage());
