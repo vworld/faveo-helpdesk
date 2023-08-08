@@ -924,7 +924,7 @@ return [
     'Departments'        => 'DEPARTMENTS',
     'tools'              => 'Tools',
     'canned'             => 'Canned',
-    'knowledge_base'     => 'Knowledge base',
+    'knowledge_base'     => 'Knowledge Base',
     'kb-settings'        => 'Knowledge base settings',
     'loading'            => 'Loading',
     'ratings'            => 'Ratings',
@@ -1283,7 +1283,7 @@ return [
       |------------------------------------------------
       |   Error Pages
       |------------------------------------------------
-     */'knowledge_base'                               => 'knowledge base',
+     */
     'not_found'                                       => 'Not found',
     'oops_page_not_found'                             => 'Oops! Page not found',
     'we_could_not_find_the_page_you_were_looking_for' => 'We could not find the page you were looking for',
